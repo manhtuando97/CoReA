@@ -1,6 +1,6 @@
 # Improving the Core Resilience of Real-world Hypergraphs
 Source code for the paper **Improving the Core Resilience of Real-world Hypergraphss**, where we formulate and study the problem of improving the resilience of hypergraphs through the means of augmention hyperedges.
-In light of several empirical patterns regarding the core resilience, we propose **CoReA** (<ins><strong>CO</strong></ins>re <ins><strong>Re</strong></ins>silience Improvement by Hyperedge<ins><strong>A</strong></ins>ugmentation.
+In light of several empirical patterns regarding the core resilience, we propose **CoReA** (<ins><strong>CO</strong></ins>re <ins><strong>Re</strong></ins>silience Improvement by Hyperedge <ins><strong>A</strong></ins>ugmentation.
 **CoReA** not only proves theoretically sound but also empirically effective in enhancing the core resilience of real-world hypergraphs.
 Extensive experiments on ten real-world datasets demonstrates the consistent superiority of **CoReA** over the baselines.
 
@@ -32,8 +32,8 @@ The pre-computed statistics of the hypergraphs are in the *Hypergraph* folder:
 ## Code
 The main implementation is in *corea.py*.
 
-How to run the code:
-# starting at the *src* folder, run the command
+## How to run the code:
+starting at the *src* folder, run the command
 python main.py dataset tie degeneracy scheme rank budget
 - dataset: name of the dataset.
 - tie: a string represents the tie-breaking scheme in Step 1-1 of *CoReA*: "SI"/"1L"/"random" for CS/CI, 1/CI, and Random, respectively.
@@ -43,5 +43,7 @@ python main.py dataset tie degeneracy scheme rank budget
 - budget: an integer represents the budget.
 
 For example: python main.py email-Enron 1I 0 IS random 10.
+
 This code finds 10 augmented hyperedges for the 'email-Enron' dataset: tie-breaking T in Step 1-1 is 1/CI, the degeneracy in Step 1-2 is waived, the selection step in Step 1-2 is CI/CS, the scoring method in Step 2 is Random.
+
 The augmented hyperedges are recorded in 'Hypergraph', with the name of the file as "email-Enron-1I-0-IS-random-10.txt", representing the dataset and the experiment configurations.
