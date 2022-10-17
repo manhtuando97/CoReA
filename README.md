@@ -33,8 +33,9 @@ The pre-computed statistics of the hypergraphs are in the *Hypergraph* folder:
 The main implementation is in *corea.py*.
 
 ## How to run the code:
-starting at the *src* folder, run the command
-python main.py dataset tie degeneracy scheme rank budget
+starting at the *src* folder, run the command:
+
+*python main.py dataset tie degeneracy scheme rank budget*
 - dataset: name of the dataset.
 - tie: a string represents the tie-breaking scheme in Step 1-1 of *CoReA*: "SI"/"1L"/"random" for CS/CI, 1/CI, and Random, respectively.
 - degeneracy: an integer represents whether the degeneracy-node requirement is enforced in Step 1-2 of *CoReA*: 1 for enforced, and 0 for waived.
