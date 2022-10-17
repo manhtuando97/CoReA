@@ -1,6 +1,6 @@
 # Improving the Core Resilience of Real-world Hypergraphs: Concepts, Observations, and Algorithms
 Source code for the paper **Improving the Core Resilience of Real-world Hypergraphs: Concepts, Observations, and Algorithms**, where we formulate and study the problem of improving the resilience of hypergraphs through the means of augmention hyperedges.
-In light of several empirical patterns regarding the core resilience, we propose **CoReA** (<ins><strong>CO</strong></ins>re <ins><strong>Re</strong></ins>silience Improvement by Hyperedge <ins><strong>A</strong></ins>ugmentation).
+In light of several empirical patterns regarding the core resilience, we propose **CoReA** (<ins><strong>Co</strong></ins>re <ins><strong>Re</strong></ins>silience Improvement by Hyperedge <ins><strong>A</strong></ins>ugmentation).
 **CoReA** not only proves theoretically sound but also empirically effective in enhancing the core resilience of real-world hypergraphs.
 Extensive experiments on ten real-world datasets demonstrates the consistent superiority of **CoReA** over the baselines.
 
