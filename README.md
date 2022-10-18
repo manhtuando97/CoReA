@@ -4,7 +4,7 @@ In light of several empirical patterns regarding the core resilience, we propose
 **CoReA** not only proves theoretically sound but also empirically effective in enhancing the core resilience of real-world hypergraphs.
 Extensive experiments on ten real-world datasets demonstrates the consistent superiority of **CoReA** over the baselines.
 
-Note: if a preview of the supplementary materials PDF file does not appear properly, please download the file.
+Note: if a preview of the supplementary document PDF file does not appear properly, please download the file.
 
 ## Datasets
 The datasets can be found in the *Hyperedges* folder. 
