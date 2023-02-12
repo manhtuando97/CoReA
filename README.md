@@ -30,7 +30,7 @@ The pre-computed statistics of the hypergraphs are in the *Hypergraph* folder:
 - Size: where the hyperedge size distributions are recorded.
 
 ## Code
-The main implementation is in *corea.py*.
+TODO: update.
 
 ## How to run the code:
 starting at the *src* folder, run the command:
@@ -43,7 +43,7 @@ starting at the *src* folder, run the command:
 - rank: a string represents the scoring method in Step 2 of *CoReA*: "main"/"mrkc"/"random" for the Core Influence-Strength (as of our method), MRKC, and Random, respectively.
 - budget: an integer represents the budget.
 
-For example: python main.py email-Enron 1I 0 IS random 10.
+For example: TO BE UPDATED.
 
 This code finds 10 augmented hyperedges for the 'email-Enron' dataset: tie-breaking T in Step 1-1 is 1/CI, the degeneracy in Step 1-2 is waived, the selection step in Step 1-2 is CI/CS, the scoring method in Step 2 is Random.
 
