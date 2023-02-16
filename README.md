@@ -23,19 +23,20 @@ Source:
 - threads-math: https://www.cs.cornell.edu/~arb/data/threads-math-sx/
 
 The pre-computed statistics of the hypergraphs are in the *Hypergraph* folder:
-- Augmentation: where the augmented hyperedges are recorded.
 - Core Influence: where the core influences are recorded.
 - Core Strength: where the core strengths are recorded.
 - Coreness: where the core numbers are recorded.
 - Size: where the hyperedge size distributions are recorded.
 
 ## Code
-TODO: update.
+The source code is in the *src* folder.
 
 ## How to run the code:
 starting at the *src* folder, run the command:
+- To compile: javac main.java
 
-*java main dataset max_node_id tie degeneracy scheme rank budget*
+- To run:
+*java main dataset max_node_id tie degeneracy scheme rank budget batch_size*
 - dataset: name of the dataset.
 - max_node_id: maximum node index in the dataset.
 - tie: a string represents the tie-breaking scheme in Step 1-1 of *CoReA*: "S/I"/"1/L"/"random" for CS/CI, 1/CI, and Random, respectively.
@@ -43,9 +44,10 @@ starting at the *src* folder, run the command:
 - scheme: a string represents the selection scheme in Step 1-2 of *CoReA*: "I/S"/"random" for CI/CS and Random, respectively.
 - rank: a string represents the scoring method in Step 2 of *CoReA*: "main"/"mrkc"/"random" for the Core Influence-Strength (as of our method), MRKC, and Random, respectively.
 - budget: an integer represents the budget.
+- batch_size: an integer represents the batch size.
 
-For example: java main contact-high-school 327 1/I 0 random random 10
+For example: java main contact-high-school 327 1/I 0 random random 10 2
 
-This code finds 10 augmented hyperedges for the 'contact-high-school' dataset: tie-breaking T in Step 1-1 is 1/CI, the degeneracy in Step 1-2 is waived, the selection step in Step 1-2 is Random, the scoring method in Step 2 is Random.
+This code finds 10 augmented hyperedges, batch size 2, for the 'contact-high-school' dataset: tie-breaking T in Step 1-1 is 1/CI, the degeneracy in Step 1-2 is waived, the selection step in Step 1-2 is Random, the scoring method in Step 2 is Random.
 
-The augmented hyperedges are recorded in 'Hypergraph', with the name of the file as "email-Enron-1I-0-IS-random-10.txt", representing the dataset and the experiment configurations.
+The augmented hyperedges are recorded in 'Results', with the name of the file as "contact-high-school-1I-0-random-random-10-2.txt", representing the dataset and the experiment configurations.
