@@ -15,9 +15,13 @@ public class main{
         String scheme = args[4];
         String rank = args[5];
         int budget = Integer.parseInt(args[6]);
+        int batch_size = Integer.parseInt(args[7]);
 
-        CoReA h_graph = new CoReA(name, max_node_id, tie, scheme, degeneracy, rank, budget);
-       
+        System.out.println(rank);
+        CoReA h_graph = new CoReA(name, max_node_id, tie, scheme, degeneracy, rank, budget, batch_size);
+        HashMap<Integer, int[]> candidate_hyperedges = h_graph.construct_hyperedge(scheme, degeneracy);
+        HashMap<Integer, int[]> augmented_hyperedges = h_graph.rank_select(candidate_hyperedges, rank, budget, batch_size);
+        h_graph.write_results(augmented_hyperedges);
     }
 
 }
