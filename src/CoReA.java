@@ -12,18 +12,29 @@ public class CoReA{
     private int degeneracy_option; // 1,0
     private String ranking_scheme; // CoReA, CI, random
     private int budget;
+    private int batch_size;
     private Queue<Integer> deletion_order;
     
     private HashMap<Integer, Set<Integer>> incidence;
     private HashMap<Integer, int[]> hyperedges;
+    private int number_hyperedges;
     private HashMap<Integer, Set<Integer>> anchors;
+    private HashMap<Integer, Set<Integer>> non_anchors;
+    private HashMap<Integer, Set<Integer>> candidate_anchors;
+    private HashMap<Integer, Set<Integer>> candidate_non_anchors;
+    private HashMap<Integer, Set<Integer>> hyperedge_by_core;
+    private HashMap<Integer, Integer> candidate_coreness;
     private float[] size_distribution;
+    private Set<Integer> sizes;
 
     private Set<Integer> nodes;
     private int[] degree;
     private int[] core_number;
+    private int degeneracy;
+    private Set<Integer> degeneracy_nodes;
     private int[] core_strength;
     private float[] core_influence;
+    private float[] values;
     private float[] chance_cs_ci;
     private float[] chance_ci_cs;
     private float[] chance_one_ci;
@@ -36,7 +47,7 @@ public class CoReA{
     // Array: array index is node id/hyperedge id - 1
 
 
-    public CoReA(String name, int max_id, String tie, String scheme, int degeneracy, String rank, int budget) throws IOException
+    public CoReA(String name, int max_id, String tie, String scheme, int degeneracy, String rank, int budget, int batch_size) throws IOException
     {
         this.name = name;
         this.max_node_id = max_id;
@@ -45,6 +56,7 @@ public class CoReA{
         this.degeneracy_option = degeneracy;
         this.ranking_scheme = rank;
         this.budget = budget;
+        this.batch_size = batch_size;
        
         this.core_number = this.load_core_number();
         this.core_strength = this.load_core_strength();
@@ -65,17 +77,18 @@ public class CoReA{
     public int[] sample(Set<Integer> candidates, float[] weights, int size){
         int[] sampled = new int[size];
 
+        Set<Integer> candidates_ = new HashSet<Integer>(candidates);
         for(int j=0; j<size;j++){
             float total_weight = 0;
-            for(int i: candidates){
+            for(int i: candidates_){
                 total_weight += weights[i-1];
                 }
             double value = Math.random() * total_weight, weight = 0;
-            for(int i: candidates){
+            for(int i: candidates_){
                 weight += weights[i-1];
                 if (value < weight){
                     sampled[j] = i;
-                    candidates.remove(i);
+                    candidates_.remove(i);
                     break;
                     }
                 }
@@ -105,6 +118,8 @@ public class CoReA{
         hyperedge_index = 0;
         HashMap<Integer, int[]> hyperedges = new HashMap<>();
         HashMap<Integer, Set<Integer>> anchors = new HashMap<>();
+        HashMap<Integer, Set<Integer>> non_anchors = new HashMap<>();
+        HashMap<Integer, Set<Integer>> hyperedge_by_core = new HashMap<>();
         int[] degree = new int[this.max_node_id];
 
         // initialize degree to be zero
@@ -121,7 +136,7 @@ public class CoReA{
         String br_line;
         while ((br_line = br.readLine()) != null){
             String[] hyperedge = br_line.split(" ");
-            //System.out.println(Arrays.toString(hyperedge));
+            
             int hyperedge_size = hyperedge.length;
             
             int[] hyperedge_ = new int[hyperedge_size];
@@ -141,6 +156,7 @@ public class CoReA{
 
             // store incidence & update degree
             Set<Integer> anchor_list = new HashSet<Integer>();
+            Set<Integer> non_anchor_list = new HashSet<Integer>();
             for(int index=0; index<hyperedge_size; index++){
                 int node = hyperedge_[index];
                 
@@ -149,7 +165,7 @@ public class CoReA{
                 if (this.core_number[node-1] == hyperedge_core_number){
                     anchor_list.add(node);
                 }
-
+                else{non_anchor_list.add(node);}
 
                 // update incidence
                 if(incidence.containsKey(node)){
@@ -165,24 +181,41 @@ public class CoReA{
                 
             }
             anchors.put(hyperedge_index, anchor_list);
+            non_anchors.put(hyperedge_index, non_anchor_list);
+
+            if (hyperedge_by_core.containsKey(hyperedge_core_number)){
+                Set<Integer> hyperedge_by_core_set = hyperedge_by_core.get(hyperedge_core_number);
+                hyperedge_by_core_set.add(hyperedge_index);
+                hyperedge_by_core.put(hyperedge_core_number, hyperedge_by_core_set);
+
+            }
+            else{
+                Set<Integer> hyperedge_by_core_set = new HashSet<Integer>();
+                hyperedge_by_core_set.add(hyperedge_index);
+                hyperedge_by_core.put(hyperedge_core_number, hyperedge_by_core_set);
+            }
             hyperedge_index++;
         }
         br.close();
+        this.number_hyperedges = hyperedge_index;
         String complete_string = String.format("done with incidence, degree, hyperedges, anchors of %s", name);
-        System.out.println(complete_string);
+        
         this.anchors = anchors;
+        this.non_anchors = non_anchors;
         this.degree = degree;
         this.hyperedges = hyperedges;
+        this.hyperedge_by_core = hyperedge_by_core;
         return incidence;
     }
 
 
-    public static float[] load_size_distribution(String name) throws IOException
+    public float[] load_size_distribution(String name) throws IOException
     {
         File currentDir = new File(".");
         File parentDir = currentDir.getParentFile();
         String directory = String.format("Hypergraph/Size/%s-size-distribution.txt", name);
         File f = new File(directory);
+        Set<Integer> sizes = new HashSet<Integer>();
         
 
         BufferedReader br = new BufferedReader(new FileReader(f));
@@ -194,10 +227,15 @@ public class CoReA{
             int size = Integer.valueOf(size_probability[0]);
             float probability = Float.valueOf(size_probability[1]);
             size_distribution[size - 2] = probability;
+            if (probability != 0){
+                sizes.add(size);
+            }
         }
         br.close();
+        this.sizes = sizes;
+        
         String complete_string = String.format("done with size distribution of %s", name);
-        System.out.println(complete_string);
+        
         
         return size_distribution;
         
@@ -210,6 +248,8 @@ public class CoReA{
         String directory = String.format("Hypergraph/Coreness/%s-coreness-rank.txt", name);
         File f = new File(directory);
         Set<Integer> nodes = new HashSet<Integer>();
+        Set<Integer> degeneracy_nodes = new HashSet<Integer>();
+        int degeneracy = 0;
         
 
         BufferedReader br = new BufferedReader(new FileReader(f));
@@ -222,14 +262,27 @@ public class CoReA{
             int node = Integer.valueOf(cn[0]);
             int coreness = Integer.valueOf(cn[1]);
             core_number[node - 1] = coreness;
+            if (coreness > degeneracy){
+                degeneracy = coreness;
+            }
             nodes.add(node);
         }
         br.close();
 
         this.nodes = nodes;
+        
+        // degeneracy and degeneracy-core nodes
+        this.degeneracy = degeneracy;
 
+        for(int index = 0; index < this.max_node_id; index++){
+            if (core_number[index] == this.degeneracy){
+                degeneracy_nodes.add(index+1);
+            }
+        }
+
+        this.degeneracy_nodes = degeneracy_nodes;
         String complete_string = String.format("done with core numbers %s", name);
-        System.out.println(complete_string);
+        
         return core_number;
     }
 
@@ -256,7 +309,7 @@ public class CoReA{
         br.close();
 
         String complete_string = String.format("done with core strengths %s", name);
-        System.out.println(complete_string);
+        
         return core_strength;
     }
 
@@ -293,7 +346,7 @@ public class CoReA{
         this.chance_ci_cs = chance_ci_cs;
         this.chance_one_ci = chance_one_ci;
         String complete_string = String.format("done with core influences %s", name);
-        System.out.println(complete_string);
+        
         return core_influence;
 
     }
@@ -301,6 +354,7 @@ public class CoReA{
     // core decomposition & compute anchor availabilities
     public int[] compute_anchor_availability(String tie_scheme) throws IOException
     {
+    
         // anchor availabilities
         int[] anchor_availability = new int[this.max_node_id];
 
@@ -330,7 +384,8 @@ public class CoReA{
                 //final Set<Integer> SDelNew = new HashSet<Integer>();
 
                 // tie-breaking scheme
-                if (tie_scheme == "SI"){ // CS/CI
+                if (tie_scheme.equals("SI")){ // CS/CI
+                    
                     int[] chosen_node = this.sample(SDel, this.chance_cs_ci, 1);
                     int i = chosen_node[0];
 
@@ -362,7 +417,8 @@ public class CoReA{
                     anchor_availability[i-1] = k-1 - copy_degree[i-1];
                 }
 
-                else if (tie_scheme == "1I"){ // 1/CI
+                else if (tie_scheme.equals("1I")){ // 1/CI
+                    
                     int[] chosen_node = this.sample(SDel, this.chance_one_ci, 1);
                     int i = chosen_node[0];
 
@@ -395,6 +451,7 @@ public class CoReA{
                 }
 
                 else{ // random
+                    
                     Integer[] array_SDel = SDel.toArray(new Integer[SDel.size()]);
                     Random rndm = new Random();
                     int rndmNumber = rndm.nextInt(SDel.size());
@@ -432,9 +489,395 @@ public class CoReA{
 
         this.deletion_order = deletion_order;
         String complete_string = String.format("done with anchor availabilities of %s", name);
-        System.out.println(complete_string);
+        
         return anchor_availability;
     }
 
     // TODO: add attribute degeneracy, write Step 1-2 and Step 2.
+    // fill up the candidate hyperedges
+    public HashMap<Integer, int[]> construct_hyperedge(String selection_scheme, int degeneracy_option){
+
+
+        Queue<Integer> construct_queue = new LinkedList<>(this.deletion_order);
+
+        Set<int[]> filled_hyperedges = new HashSet<int[]>();
+        HashMap<Integer, int[]> candidate_hyperedges = new HashMap<>();
+        HashMap<Integer, Set<Integer>> candidate_anchors = new HashMap<>();
+        HashMap<Integer, Set<Integer>> candidate_non_anchors = new HashMap<>();
+        HashMap<Integer, Integer> candidate_coreness = new HashMap<>();
+
+        int candidate_index = 0;
+        while (!construct_queue.isEmpty()){
+            int anchor = construct_queue.remove();
+            int availability = this.anchor_availability[anchor-1];
+
+            // for the last node, cannot construct any candidate hyperedges
+            if (construct_queue.isEmpty()){
+                break;
+            }
+
+            for(int i =0; i<availability; i++){
+                int[] sampled_size_array = this.sample(this.sizes, this.size_distribution, 1);
+                int selected_size = sampled_size_array[0];
+                int sampled_size = Math.min(1 + construct_queue.size(), selected_size);
+                
+                int[] candidate_hyperedge = new int[sampled_size];
+                
+                candidate_hyperedge[0] = anchor;
+                if (selection_scheme.equals("IS")){ // chosen based on CI/CS; 2 options regarding degneracy: enforced and waived
+                    
+                    if (degeneracy_option == 1){ // degeneracy option enforced
+                        int [] degeneracy_node_sampled = this.sample(this.degeneracy_nodes, this.chance_ci_cs, 1);
+                        candidate_hyperedge[1] = degeneracy_node_sampled[0];
+                        if (sampled_size > 2){
+                            // choose from other nodes
+                            Queue<Integer> other_nodes = new LinkedList<>(construct_queue);
+                            other_nodes.remove(degeneracy_node_sampled[0]);
+                            Set<Integer> candidate_nodes = new HashSet<Integer>(other_nodes);
+                            int[] chosen_nodes = this.sample(candidate_nodes, this.chance_ci_cs, sampled_size-2);
+                            for (int index = 0; index < sampled_size-2; index++){
+                                candidate_hyperedge[index+2] = chosen_nodes[index];
+                            }
+                        }
+                    }
+
+                    else{ // degeneracy option waived
+                        Set<Integer> candidate_nodes = new HashSet<Integer>(construct_queue);
+                        int[] chosen_nodes = this.sample(candidate_nodes, this.chance_ci_cs, sampled_size-1);
+                        for (int index = 0; index < sampled_size-1; index++){
+                        candidate_hyperedge[index+1] = chosen_nodes[index];
+                        }
+                    }
+                    
+                    
+                }
+                else{
+                    
+                    Set<Integer> candidate_nodes = new HashSet<Integer>(construct_queue);
+                    int[] chosen_nodes = this.sample(candidate_nodes, this.chance_random, sampled_size-1);
+                    for (int index = 0; index < sampled_size-1; index++){
+                        candidate_hyperedge[index+1] = chosen_nodes[index];
+                    }
+                }
+                
+                boolean duplicate = false;
+                Arrays.sort(candidate_hyperedge);
+
+                for(int[] curr_candidate:filled_hyperedges){
+                    duplicate = Arrays.equals(curr_candidate, candidate_hyperedge);
+                    if (duplicate){break;}
+                }
+                
+                if (!duplicate){filled_hyperedges.add(candidate_hyperedge);}
+                
+                
+            }
+        }
+
+        /* iterate through all filled hyperedges */
+        for(int[] considered_hyperedge: filled_hyperedges){
+            
+            int hyperedge_coreness = this.degeneracy;   
+            Set<Integer> this_anchors = new HashSet<Integer>();
+            Set<Integer> this_non_anchors = new HashSet<Integer>();
+
+            for (int t = 0; t< considered_hyperedge.length; t++){
+                if (this.core_number[considered_hyperedge[t]-1] < hyperedge_coreness){
+                    hyperedge_coreness = this.core_number[considered_hyperedge[t]-1];
+                }
+            }   
+
+            for (int t = 0; t< considered_hyperedge.length; t++){
+                if (this.core_number[considered_hyperedge[t]-1] == hyperedge_coreness){
+                    this_anchors.add(considered_hyperedge[t]);
+                }
+                else{this_non_anchors.add(considered_hyperedge[t]);}
+            } 
+        
+            candidate_anchors.put(candidate_index, this_anchors);
+            candidate_non_anchors.put(candidate_index, this_non_anchors);
+            candidate_hyperedges.put(candidate_index, considered_hyperedge);
+            candidate_coreness.put(candidate_index, hyperedge_coreness);
+            candidate_index++;
+        }
+        this.candidate_anchors = candidate_anchors;
+        this.candidate_non_anchors = candidate_non_anchors;
+        this.candidate_coreness = candidate_coreness;
+        return candidate_hyperedges;
+    }
+
+    
+    public HashMap<Integer, int[]> rank_select(HashMap<Integer, int[]> candidate_hyperedges, String ranking_scheme, int budget, int batch_size){
+        if (budget > candidate_hyperedges.size()){
+            return candidate_hyperedges;
+        }
+
+
+        int augmented_index = 0;
+        HashMap<Integer, int[]> augmented_hyperedges = new HashMap<>();
+        HashMap<Integer, int[]> copy_candidates = new HashMap<>();
+        copy_candidates.putAll(candidate_hyperedges);
+        
+
+        if (ranking_scheme.equals("main")){
+            
+            this.update_values();
+
+            int curr_budget = budget;
+            while(curr_budget>0){
+                Set<Integer> candidate_ids = copy_candidates.keySet();
+                int curr_batch_size = Math.min(curr_budget, batch_size);
+
+                float[] scores = new float[candidate_hyperedges.size()];
+                Arrays.fill(scores, 0);
+
+                int[] core_degree = new int[max_node_id];
+                for (int i=0; i<max_node_id; i++){
+                    core_degree[i] = this.core_number[i] + this.core_strength[i] - 1;
+                }
+
+                // scoring the candidates
+                for(int id: candidate_ids){
+                    Set<Integer> candidate_hyperedge_anchors = this.candidate_anchors.get(id);
+                    Set<Integer> candidate_hyperedge_non_anchors = this.candidate_non_anchors.get(id);
+
+                    float contrib = 0;
+                    int vertex =1;
+                    
+                    for(int anchor_node: candidate_hyperedge_anchors){
+                        float this_contrib = (1- (this.core_strength[anchor_node-1]-1)/core_degree[anchor_node-1]) * this.core_influence[anchor_node-1];
+                        if (this_contrib > contrib){
+                            vertex = anchor_node;
+                            contrib = this_contrib;
+                        }
+                    }
+                    int this_score = 0;
+                    for(int anchor_node: candidate_hyperedge_anchors){
+                        this_score += this.core_influence[anchor_node-1];
+                    }
+
+                    for(int non_anchor_node: candidate_hyperedge_non_anchors){
+                        this_score += contrib * (1 + (this.core_number[non_anchor_node-1]-this.core_number[vertex-1])/(this.core_number[non_anchor_node-1]-1)) * this.values[non_anchor_node - 1];
+                    }
+                    scores[id] = this_score;
+                }
+
+                // choose the curr_batch_size best candidates with the highest scores
+                for (int turn=0; turn<curr_batch_size;turn++){
+                    float metric = 0;
+                    int chosen_id = 0;
+                    
+                    for(int id: candidate_ids){
+                        if (scores[id] > metric){
+                            metric = scores[id];
+                            chosen_id = id;
+                        }
+                    }
+                    
+                    augmented_hyperedges.put(augmented_index, copy_candidates.get(chosen_id));
+                    augmented_index++;
+                    
+                    // add to hyperedges, update anchors & non-anchors, and update core strengths here
+                    this.hyperedges.put(this.hyperedges.size(), copy_candidates.get(chosen_id));
+                    this.anchors.put(this.anchors.size(), candidate_anchors.get(chosen_id));
+                    this.non_anchors.put(this.non_anchors.size(), candidate_non_anchors.get(chosen_id));
+                    this.update_strengths(this.candidate_anchors.get(chosen_id));
+
+                    // set the respective schore of the chosen candidate as 0 to select other candidates and remove the chosen id to avoid duplicates
+                    scores[chosen_id] = 0;
+                    candidate_ids.remove(chosen_id);
+                    copy_candidates.remove(chosen_id);
+
+                    Set<Integer> hyperedge_index_by_core = new HashSet<Integer>();
+                    if (this.hyperedge_by_core.containsKey(this.candidate_coreness.get(chosen_id))){
+                        hyperedge_index_by_core = this.hyperedge_by_core.get(this.candidate_coreness.get(chosen_id));
+                    }
+                    
+                    hyperedge_index_by_core.add(this.hyperedges.size()-1);
+                    this.hyperedge_by_core.put(this.candidate_coreness.get(chosen_id), hyperedge_index_by_core);
+                }
+
+                // update all core influences here
+                curr_budget = curr_budget - curr_batch_size;
+                this.update_influences();
+                this.update_values();
+            }
+
+        }
+
+        else if (ranking_scheme.equals("CI")){
+            
+            int curr_budget = budget;
+            while(curr_budget >0){
+                int curr_batch_size = Math.min(curr_budget, batch_size);
+
+                Set<Integer> candidate_ids = copy_candidates.keySet();
+
+                float[] scores = new float[candidate_hyperedges.size()];
+                Arrays.fill(scores, 0);
+
+                // scoring the candidate hyperedges
+                for (int id: candidate_ids){
+                    Set<Integer> candidate_hyperedge_anchors = this.candidate_anchors.get(id);
+                    for (int anchor:candidate_hyperedge_anchors){
+                        scores[id] += this.core_influence[anchor-1];
+                    }
+                }
+
+                // select batch_size candidates with the highest scores
+                for (int turn=0; turn<curr_batch_size;turn++){
+                    float metric = 0;
+                    int chosen_id = 0;
+                    for(int id: candidate_ids){
+                        if (scores[id] > metric){
+                            metric = scores[id];
+                            chosen_id = id;
+                        }
+                    }
+                    augmented_hyperedges.put(augmented_index, copy_candidates.get(chosen_id));
+                    augmented_index++;
+                    
+                    // add to hyperedges, update anchors & non-anchors, and update core strengths here
+                    this.hyperedges.put(this.hyperedges.size(), copy_candidates.get(chosen_id));
+                    this.anchors.put(this.anchors.size(), candidate_anchors.get(chosen_id));
+                    this.non_anchors.put(this.non_anchors.size(), candidate_non_anchors.get(chosen_id));
+                    this.update_strengths(this.candidate_anchors.get(chosen_id));
+
+                    // set the respective schore of the chosen candidate as 0 to select other candidates
+                    scores[chosen_id] = 0;
+                    candidate_ids.remove(chosen_id);
+                    copy_candidates.remove(chosen_id);
+
+                    Set<Integer> hyperedge_index_by_core = new HashSet<Integer>();
+                    if (this.hyperedge_by_core.containsKey(this.candidate_coreness.get(chosen_id))){
+                        hyperedge_index_by_core = this.hyperedge_by_core.get(this.candidate_coreness.get(chosen_id));
+                    }
+                    
+                    hyperedge_index_by_core.add(this.hyperedges.size()-1);
+                    this.hyperedge_by_core.put(this.candidate_coreness.get(chosen_id), hyperedge_index_by_core);
+                }
+                // update all core influences here
+                curr_budget = curr_budget - curr_batch_size;
+                this.update_influences();
+            }
+            
+        }
+
+        else{ // random
+            
+            int number_candidates = candidate_hyperedges.size();
+            Set<Integer> candidates = new HashSet<Integer>();
+            for(int i = 0; i< number_candidates; i++){
+                candidates.add(i+1);
+            }
+            float chance[] = new float[number_candidates];
+            Arrays.fill(chance, 1);
+            int[] chosen_hyperedges = this.sample(candidates, chance, budget);
+            for(int i =0; i<budget;i++){
+                augmented_hyperedges.put(i, candidate_hyperedges.get(chosen_hyperedges[i]-1));
+            }
+        }
+
+        return augmented_hyperedges;
+    }
+    
+    public void update_strengths(Set<Integer> anchors){
+        for(int node: anchors){
+            this.core_strength[node-1] +=1;
+        }
+    }
+
+    // update core influences of nodes in the hypergraph
+    public void update_influences(){
+        float[] new_inf = new float[this.max_node_id];
+        int[] core_degree = new int[this.max_node_id];
+
+        for (int index=0; index<max_node_id; index++){
+            new_inf[index] = 0;
+            core_degree[index] = this.core_number[index] + this.core_strength[index] - 1;
+        }
+
+        for(int i=1; i<this.degeneracy; i++){
+            if(this.hyperedge_by_core.containsKey(i)){
+                for(int hyperedge_index: this.hyperedge_by_core.get(i)){
+                    Set<Integer> this_anchors = this.anchors.get(hyperedge_index);
+                    Set<Integer> this_non_anchors = this.non_anchors.get(hyperedge_index);
+
+                    float contrib = 0;
+                    int vertex = 1;
+
+                    for(int anchor_node: this_anchors){
+                        float this_contrib = (1 - (this.core_strength[anchor_node - 1])/(core_degree[anchor_node - 1])) * new_inf[anchor_node - 1];
+                        if (this_contrib > contrib){
+                            contrib = this_contrib;
+                            vertex = anchor_node;
+                        }
+                    }
+
+                    for (int non_anchor_node: this_non_anchors){
+                        new_inf[non_anchor_node-1] += contrib *( 1 + (this.core_number[non_anchor_node-1] - this.core_number[vertex-1]) / (this.core_number[non_anchor_node-1] - 1));
+                    }
+                }
+            }
+        }
+    }
+
+    // the value of each node is alpha so that if the core influence of that node increases by 1, the objective increases by alpha
+    public void update_values(){
+        float[] value = new float[this.max_node_id];
+        int[] core_degree = new int[this.max_node_id];
+
+        for (int i=0; i<this.max_node_id; i++){
+            value[i] = this.core_strength[i];
+            core_degree[i] = this.core_number[i] + this.core_strength[i] - 1;
+        }
+
+        for(int i=1; i<this.degeneracy; i++){
+            if(this.hyperedge_by_core.containsKey(i)){
+                for(int hyperedge_index: this.hyperedge_by_core.get(i)){
+                    Set<Integer> this_anchors = this.anchors.get(hyperedge_index);
+                    Set<Integer> this_non_anchors = this.non_anchors.get(hyperedge_index);
+
+                    float contrib = 0;
+                    int vertex = 1;
+
+                    for(int anchor_node: this_anchors){
+                        float this_contrib = (1 - (this.core_strength[anchor_node - 1])/(core_degree[anchor_node - 1])) * this.core_influence[anchor_node - 1];
+                        if (this_contrib > contrib){
+                            contrib = this_contrib;
+                            vertex = anchor_node;
+                        }
+                    }
+
+                    for (int non_anchor_node: this_non_anchors){
+                        value[non_anchor_node-1] += ( 1 - (this.core_strength[non_anchor_node-1] - 1) /core_degree[non_anchor_node-1]) *
+                        (1+(this.core_number[non_anchor_node-1] - this.core_number[vertex-1]) / (this.core_number[non_anchor_node-1] - 1));
+                    }
+                }
+            }
+        }
+
+        this.values = value;
+    }
+
+    public void write_results(HashMap<Integer, int[]> augmented_hyperedges) throws IOException{
+        File results = new File(   "Results/" + this.name + "-" + this.tie_scheme + "-"
+        + this.selection_scheme + "-"
+        + String.valueOf(this.degeneracy_option) + "-"
+        + this.ranking_scheme + "-"
+        + String.valueOf(this.budget) + "-"
+        + String.valueOf(this.batch_size) + ".txt" );
+
+        BufferedWriter wr = new BufferedWriter(new FileWriter(results));
+        for(int i: augmented_hyperedges.keySet()){
+            String str = Arrays.stream(augmented_hyperedges.get(i))
+                .mapToObj(String::valueOf)
+                .reduce((x, y) -> x + " " + y)
+                .get();
+            wr.write(str + '\n');
+        }
+
+        wr.close();
+        
+    }
 }
